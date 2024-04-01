@@ -9,7 +9,7 @@ import (
 
 func Connect() *gorm.DB {
 	db , err := gorm.Open(postgres.New(postgres.Config{
-		DSN:                  "user=postgres password=chhabrarahul dbname=test port=5432 sslmode=disable TimeZone=Asia/Shanghai",
+		DSN:"user=postgres password=chhabrarahul dbname=test port=5432 sslmode=disable TimeZone=Asia/Shanghai",
 		PreferSimpleProtocol: true, // disables implicit prepared statement usage
 	}), &gorm.Config{})
 

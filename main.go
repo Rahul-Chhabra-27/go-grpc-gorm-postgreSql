@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
 	"net"
 
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"gorm.io/gorm"
@@ -13,8 +16,11 @@ import (
 
 type User struct {
 	gorm.Model
-	Username string
-	Password string
+	Firstname string
+	Lastname  string
+	Age       int64
+	Username  string
+	Password  string
 }
 type Config struct {
 	UserPb.UnimplementedUserServiceServer
@@ -25,8 +31,16 @@ var dbConnector *gorm.DB
 func (*Config) CreateUser(ctx context.Context, request *UserPb.CreateUserRequest) (response *UserPb.CreateUserResponse, err error) {
 	username := request.GetUsername()
 	password := request.GetPassword()
+	firstname := request.GetFirstname()
+	lastname := request.GetLastname()
+	age := request.GetAge()
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
-	newUser := &User{Username: username, Password: password}
+	if err != nil {
+		log.Fatalf("Couldn't hash password and the error is %s", err)
+	}
+	newUser := &User{Username: username, Password: string(hashedPassword), Firstname: firstname, Lastname: lastname, Age: age}
+
 	primaryKey := dbConnector.Create(newUser)
 	if primaryKey.Error != nil {
 		return nil, primaryKey.Error
@@ -35,7 +49,36 @@ func (*Config) CreateUser(ctx context.Context, request *UserPb.CreateUserRequest
 		Username: username,
 	}, nil
 }
-
+func (*Config) LoginUser(ctx context.Context, request *UserPb.LoginUserRequest) (response *UserPb.LoginUserResponse, err error) {
+	username := request.GetUsername()
+	password := request.GetPassword()
+	var existingUser User
+	if err := dbConnector.Where("username = ?", username).First(&existingUser).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			fmt.Println("Record not found")
+			return nil, err
+		} else {
+			fmt.Println("Error:", err)
+			return nil, err
+		}
+	} else {
+		// ** Compare Passwords....
+		if err := bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(password)); err != nil {
+			if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+				log.Fatalf("Password does not match %s", err)
+				return nil, err
+			} else {
+				log.Fatalf("Error : %s", err)
+				return nil, err
+			}
+		}
+		return &UserPb.LoginUserResponse{
+			Username:  existingUser.Username,
+			IsSuccess: true,
+			Message:   "Logged In Successfully",
+		}, nil
+	}
+}
 func main() {
 	dbConnector = Connect()
 	grpcServer := grpc.NewServer()
