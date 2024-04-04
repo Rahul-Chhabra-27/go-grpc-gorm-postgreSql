@@ -30,24 +30,34 @@ var dbConnector *gorm.DB
 
 func (*Config) CreateUser(ctx context.Context, request *UserPb.CreateUserRequest) (response *UserPb.CreateUserResponse, err error) {
 	username := request.GetUsername()
-	password := request.GetPassword()
-	firstname := request.GetFirstname()
-	lastname := request.GetLastname()
-	age := request.GetAge()
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	/**
+		Check if user already exist...
+	**/
+	var existingUser User
+	userNotFoundError := dbConnector.Where("username = ?", username).First(&existingUser).Error
+	if userNotFoundError != nil {
+		password := request.GetPassword()
+		firstname := request.GetFirstname()
+		lastname := request.GetLastname()
+		age := request.GetAge()
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			log.Fatalf("Couldn't hash password and the error is %s", err)
+		}
+		/** Creating a new User.
+		**/
+		newUser := &User{Username: username, Password: string(hashedPassword), Firstname: firstname, Lastname: lastname, Age: age}
 
-	if err != nil {
-		log.Fatalf("Couldn't hash password and the error is %s", err)
+		primaryKey := dbConnector.Create(newUser)
+		if primaryKey.Error != nil {
+			return nil, primaryKey.Error
+		}
+		return &UserPb.CreateUserResponse{
+			Username: username,
+		}, nil
 	}
-	newUser := &User{Username: username, Password: string(hashedPassword), Firstname: firstname, Lastname: lastname, Age: age}
-
-	primaryKey := dbConnector.Create(newUser)
-	if primaryKey.Error != nil {
-		return nil, primaryKey.Error
-	}
-	return &UserPb.CreateUserResponse{
-		Username: username,
-	}, nil
+	fmt.Println("Username is used, please try another username ")
+	return nil, userNotFoundError
 }
 func (*Config) LoginUser(ctx context.Context, request *UserPb.LoginUserRequest) (response *UserPb.LoginUserResponse, err error) {
 	username := request.GetUsername()
@@ -65,7 +75,7 @@ func (*Config) LoginUser(ctx context.Context, request *UserPb.LoginUserRequest) 
 		// ** Compare Passwords....
 		if err := bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(password)); err != nil {
 			if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-				log.Fatalf("Password does not match %s", err)
+				fmt.Printf("Password does not match %s", err)
 				return nil, err
 			} else {
 				log.Fatalf("Error : %s", err)

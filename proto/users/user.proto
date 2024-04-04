@@ -3,6 +3,8 @@ package user;
 
 option go_package="proto/user";
 
+// ** Note -> For Testing purpose..
+
 message CreateUserRequest {
     string username = 1;
     string password = 2;
@@ -26,6 +28,10 @@ message LoginUserResponse {
 };
 
 service UserService {
+     // ** Unary API Call..
+    // Signup User....
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {};
+    // ** Unary API Call..
+    // Login User....
     rpc LoginUser(LoginUserRequest) returns (LoginUserResponse) {};
 }

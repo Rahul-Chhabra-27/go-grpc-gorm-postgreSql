@@ -12,7 +12,6 @@ func Connect() *gorm.DB {
 		DSN:"user=postgres password=chhabrarahul dbname=test port=5432 sslmode=disable TimeZone=Asia/Shanghai",
 		PreferSimpleProtocol: true, // disables implicit prepared statement usage
 	}), &gorm.Config{})
-
 	if err != nil {
 		panic("failed to connect database")
 	}
